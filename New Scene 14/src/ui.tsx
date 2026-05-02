@@ -1,8 +1,9 @@
-import { Animator, AudioSource, AvatarAnchorPointType, AvatarAttach, ColliderLayer, engine, Entity, GltfContainer, InputAction, inputSystem, Material, MeshCollider, MeshRenderer, NetworkEntity, PlayerIdentityData, pointerEventsSystem, PointerEventType, RaycastQueryType, raycastSystem, Schemas, TextureWrapMode, Transform, TriggerArea, triggerAreaEventsSystem, VisibilityComponent } from "@dcl/sdk/ecs"
+import { Animator, AudioSource, AvatarAnchorPointType, AvatarAttach, ColliderLayer, engine, Entity, GltfContainer, InputAction, inputSystem, Material, MeshCollider, MeshRenderer, NetworkEntity, PlayerIdentityData, pointerEventsSystem, PointerEventType, RaycastQueryType, raycastSystem, Schemas, TextureWrapMode, timers, Transform, TriggerArea, triggerAreaEventsSystem, VisibilityComponent } from "@dcl/sdk/ecs"
 import { Quaternion, Vector2, Vector3 } from "@dcl/sdk/math"
 import { isStateSyncronized, syncEntity } from "@dcl/sdk/network"
 import ReactEcs, { ReactEcsRenderer, UiEntity } from "@dcl/sdk/react-ecs"
 import { getPlayer, onEnterScene, onLeaveScene } from '@dcl/sdk/src/players'
+import { MessageBus } from '@dcl/sdk/message-bus'
 
 let getSceneAdmins: string[]
 let getSceneHost: { active: boolean, wallet: string, latestSync: number }
@@ -157,7 +158,8 @@ let getGameAreaGeneration: {
 let sceneAdmin: boolean = false
 let scenePlayersOnline: { wallet: string, name: string, online: boolean, state: PlayerState }[]
 let gamePlayerTriggerArea: Entity = 0 as Entity
-export let gameButtons: { join: Entity, cancel: Entity } = { join: 0 as Entity, cancel: 0 as Entity }
+export let gameButtons: { join: Entity, cancel: Entity, view: Entity } = { join: 0 as Entity, cancel: 0 as Entity, view: 0 as Entity }
+const sceneMessageBus = new MessageBus()
 
 export enum PlayerState {
   IDLE = 'idle',
@@ -236,6 +238,7 @@ export enum BarrierType {
 export enum ButtonType {
   JOIN = 'join',
   CANCEL = 'cancel',
+  VIEW = 'view',
   DOOR = 'door',
   RONDOM = 'random',
   TELEPORT = 'teleport',
@@ -659,6 +662,71 @@ export function updateGameEntity(
     updateEntitySubtype === ButtonType.JOIN
   ) {
     gameButtons.join = entity
+    if (components.transform) {
+    let transformData: any = {}
+      components.transform.position ? transformData.position = components.transform.position : null
+      components.transform.rotation ? transformData.rotation = components.transform.rotation : null
+      components.transform.scale ? transformData.scale = components.transform.scale : null
+      components.transform.parent ? transformData.parent = components.transform.parent : null
+      Transform.createOrReplace(entity, transformData)
+    }
+    GltfContainer.createOrReplace(entity, {
+      src: 'assets/asset-packs/green_light_button/green_scifi_button.glb',
+      invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+      visibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS | ColliderLayer.CL_POINTER
+    })
+    VisibilityComponent.createOrReplace(entity, {
+      visible: true
+    })
+    Animator.createOrReplace(entity, {
+      states: [{ clip: 'trigger', playing: false, loop: false }]
+    })
+    pointerEventsSystem.onPointerDown(
+      {
+        entity: entity,
+        opts: {
+          button: InputAction.IA_PRIMARY,
+          hoverText: 'Click',
+          maxDistance: 10
+        }
+      },
+      (event) => {
+        GltfContainer.createOrReplace(entity, {
+          src: 'assets/asset-packs/green_light_button/green_scifi_button.glb',
+          invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+          visibleMeshesCollisionMask: ColliderLayer.CL_NONE
+        })
+        AudioSource.createOrReplace(entity, {
+          audioClipUrl: 'assets/asset-packs/green_light_button/sound.mp3',
+          playing: true,
+          global: true
+        })
+        VisibilityComponent.createOrReplace(entity, {
+          visible: false
+        })
+        GltfContainer.createOrReplace(gameButtons.cancel, {
+          src: 'assets/asset-packs/red_light_button/red_scifi_button.glb',
+          invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+          visibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS | ColliderLayer.CL_POINTER
+        })
+        VisibilityComponent.createOrReplace(gameButtons.cancel, {
+          visible: true
+        })
+        Animator.createOrReplace(gameButtons.cancel, {
+          states: [{ clip: 'trigger', playing: true, loop: false }]
+        })
+        const myPlayer = getPlayer()
+        if (!getGameSession || getGameSession.length === 0) {
+          sceneMessageBus.emit('playerJoin', { player: myPlayer })
+        } else if (getGameSession[getGameSession.length - 1].state === SessionState.CANCEL ||
+          getGameSession[getGameSession.length - 1].state === SessionState.END
+        ) {
+          sceneMessageBus.emit('playerJoin', { player: myPlayer })
+        } else if (getGameSession[getGameSession.length - 1].state === SessionState.WAIT) {
+          sceneMessageBus.emit('playerJoin', { player: myPlayer })
+        }
+      }
+    )
   }
   if (updateEntityState === UpdateEntityState.ADD &&
     updateEntitySync === false &&
@@ -666,9 +734,166 @@ export function updateGameEntity(
     updateEntitySubtype === ButtonType.CANCEL
   ) {
     gameButtons.cancel = entity
+    Transform.createOrReplace(entity, {
+      position: Vector3.create(16, 1.8, 13.25),
+      rotation: Quaternion.fromEulerDegrees(270, 0, 0)
+    })
+    GltfContainer.createOrReplace(entity, {
+      src: 'assets/asset-packs/red_light_button/red_scifi_button.glb',
+      invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+      visibleMeshesCollisionMask: ColliderLayer.CL_NONE
+    })
+    VisibilityComponent.createOrReplace(entity, {
+      visible: false
+    })
+    Animator.createOrReplace(entity, {
+      states: [{ clip: 'trigger', playing: false, loop: false }]
+    })
+    pointerEventsSystem.onPointerDown(
+      {
+        entity: entity,
+        opts: {
+          button: InputAction.IA_PRIMARY,
+          hoverText: 'Click',
+          maxDistance: 10
+        }
+      },
+      (event) => {
+        GltfContainer.createOrReplace(entity, {
+          src: 'assets/asset-packs/red_light_button/red_scifi_button.glb',
+          invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+          visibleMeshesCollisionMask: ColliderLayer.CL_NONE
+        })
+        AudioSource.createOrReplace(entity, {
+          audioClipUrl: 'assets/asset-packs/red_light_button/sound.mp3',
+          playing: true,
+          global: true
+        })
+        VisibilityComponent.createOrReplace(entity, {
+          visible: false
+        })
+        GltfContainer.createOrReplace(gameButtons.join, {
+          src: 'assets/asset-packs/green_light_button/green_scifi_button.glb',
+          invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+          visibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS | ColliderLayer.CL_POINTER
+        })
+        VisibilityComponent.createOrReplace(gameButtons.join, {
+          visible: true
+        })
+        Animator.createOrReplace(gameButtons.join, {
+          states: [{ clip: 'trigger', playing: true, loop: false }]
+        })
+      }
+    )
   }
-
-  if (components.transform) {
+  if (updateEntityState === UpdateEntityState.ADD &&
+    updateEntitySync === false &&
+    updateEntityType === UpdateEntityType.BUTTON &&
+    updateEntitySubtype === ButtonType.VIEW
+  ) {
+    gameButtons.view = entity
+    Transform.createOrReplace(entity, {
+      position: Vector3.create(16, 1.8, 13.25),
+      rotation: Quaternion.fromEulerDegrees(270, 0, 0)
+    })
+    GltfContainer.createOrReplace(entity, {
+      src: 'assets/asset-packs/blue_light_button/blue_scifi_button.glb',
+      invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+      visibleMeshesCollisionMask: ColliderLayer.CL_NONE
+    })
+    VisibilityComponent.createOrReplace(entity, {
+      visible: false
+    })
+    Animator.createOrReplace(entity, {
+      states: [{ clip: 'trigger', playing: false, loop: false }]
+    })
+    pointerEventsSystem.onPointerDown(
+      {
+        entity: entity,
+        opts: {
+          button: InputAction.IA_PRIMARY,
+          hoverText: 'Click',
+          maxDistance: 10
+        }
+      },
+      (event) => {
+        /*GltfContainer.createOrReplace(entity, {
+          src: 'assets/asset-packs/blue_light_button/blue_scifi_button.glb',
+          invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+          visibleMeshesCollisionMask: ColliderLayer.CL_NONE
+        })*/
+        Animator.createOrReplace(entity, {
+          states: [{ clip: 'trigger', playing: true, loop: false }]
+        })
+        AudioSource.createOrReplace(entity, {
+          audioClipUrl: 'assets/asset-packs/blue_light_button/sound.mp3',
+          playing: true,
+          global: true
+        })
+      }
+    )
+  }
+  if (updateEntityState === UpdateEntityState.ADD &&
+    updateEntitySync === false &&
+    updateEntityType === UpdateEntityType.BARRIER &&
+    updateEntitySubtype === BarrierType.WALL
+  ) {
+    if (components.transform) {
+      let transformData: any = {}
+      components.transform.position ? transformData.position = components.transform.position : null
+      components.transform.rotation ? transformData.rotation = components.transform.rotation : null
+      components.transform.scale ? transformData.scale = components.transform.scale : null
+      components.transform.parent ? transformData.parent = components.transform.parent : null
+      Transform.createOrReplace(entity, transformData)
+    }
+    if (components.material) {
+      if (components.material.texture) {
+        const textureData: any = {}
+        const materialData: any = {}
+        components.material.texture.src ? textureData.src = components.material.texture.src : null
+        components.material.texture.wrapMode ? textureData.wrapMode = components.material.texture.wrapMode : null
+        components.material.texture.offset ? textureData.offset = components.material.texture.offset : null
+        components.material.texture.tiling ? textureData.tiling = components.material.texture.tiling : null
+        materialData.texture = Material.Texture.Common(textureData)
+        Material.setBasicMaterial(entity, materialData)
+      }
+    }
+    if (components.meshCollider) {
+      if (components.meshCollider.visibleCollision) {
+        if (components.meshCollider.shape === ShapeType.BOX) {
+          MeshCollider.setBox(entity, parseCollider(components.meshCollider.visibleCollision))
+        } else if (components.meshCollider.shape === ShapeType.PLANE) {
+          MeshCollider.setPlane(entity, parseCollider(components.meshCollider.visibleCollision))
+        } else if (components.meshCollider.shape === ShapeType.SPHERE) {
+          MeshCollider.setSphere(entity, parseCollider(components.meshCollider.visibleCollision))
+        } else if (components.meshCollider.shape === ShapeType.CYLINDER) {
+          MeshCollider.setCylinder(entity, parseCollider(components.meshCollider.visibleCollision))
+        }
+      } else {
+        if (components.meshCollider.shape === ShapeType.BOX) {
+          MeshCollider.setBox(entity)
+        } else if (components.meshCollider.shape === ShapeType.PLANE) {
+          MeshCollider.setPlane(entity)
+        } else if (components.meshCollider.shape === ShapeType.SPHERE) {
+          MeshCollider.setSphere(entity)
+        } else if (components.meshCollider.shape === ShapeType.CYLINDER) {
+          MeshCollider.setCylinder(entity)
+        }
+      }
+    }
+    if (components.meshRenderer) {
+      if (components.meshRenderer.shape === ShapeType.BOX) {
+        MeshRenderer.setBox(entity)
+      } else if (components.meshRenderer.shape === ShapeType.PLANE) {
+        MeshRenderer.setPlane(entity)
+      } else if (components.meshRenderer.shape === ShapeType.SPHERE) {
+        MeshRenderer.setSphere(entity)
+      } else if (components.meshRenderer.shape === ShapeType.CYLINDER) {
+        MeshRenderer.setCylinder(entity)
+      }
+    }
+  }
+  /*if (components.transform) {
     let transformData: any = {}
     components.transform.position ? transformData.position = components.transform.position : null
     components.transform.rotation ? transformData.rotation = components.transform.rotation : null
@@ -774,7 +999,7 @@ export function updateGameEntity(
     pointerData,
     pointerFunction
   )
-  }
+  }*/
   return entity
 }
 
@@ -784,7 +1009,7 @@ export function newGameSession() {
   if (entity && getSceneHost.wallet === myPlayer?.userId) {
     GameSessions.getMutable(entity).gameSession.push({
       sessionId: generateId(10)+'-'+Date.now(),
-      state: SessionState.WAIT,
+      state: SessionState.CONTINUE,
       modeNPC: SessionModeNPC.VIP,
       startWaiting: Date.now() + (getGameSettings.waiting * 1000),
       gameDuration: Date.now() + ((getGameSettings.waiting + getGameSettings.duration) * 1000),
@@ -877,6 +1102,39 @@ engine.addSystem(() => {
       (getGameSession[getGameSession.length - 1].state === SessionState.WAIT ||
       getGameSession[getGameSession.length - 1].state === SessionState.CONTINUE) &&
       !gamePlayerTriggerArea) {
+      if (getGameSession[getGameSession.length - 1].state === SessionState.CONTINUE) {
+        if (VisibilityComponent.get(gameButtons.join).visible === true) {
+          GltfContainer.createOrReplace(gameButtons.join, {
+            src: 'assets/asset-packs/green_light_button/green_scifi_button.glb',
+            invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+            visibleMeshesCollisionMask: ColliderLayer.CL_NONE
+          })
+          VisibilityComponent.createOrReplace(gameButtons.join, {
+            visible: false
+          })
+        }
+        if (VisibilityComponent.get(gameButtons.cancel).visible === true) {
+          GltfContainer.createOrReplace(gameButtons.cancel, {
+            src: 'assets/asset-packs/red_light_button/red_scifi_button.glb',
+            invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+            visibleMeshesCollisionMask: ColliderLayer.CL_NONE
+          })
+          VisibilityComponent.createOrReplace(gameButtons.cancel, {
+            visible: false
+          })
+        }
+        GltfContainer.createOrReplace(gameButtons.view, {
+          src: 'assets/asset-packs/blue_light_button/blue_scifi_button.glb',
+          invisibleMeshesCollisionMask: ColliderLayer.CL_NONE,
+          visibleMeshesCollisionMask: ColliderLayer.CL_PHYSICS | ColliderLayer.CL_POINTER
+        })
+        VisibilityComponent.createOrReplace(gameButtons.view, {
+          visible: true
+        })
+      }
+      sceneMessageBus.on('playerJoin', (player) => {
+        console.log('player join: ', JSON.stringify(player))
+      })
       if (getGameSession[getGameSession.length - 1].players.some(player => player.wallet === getPlayer()?.userId)) {
         const playerTriggerArea = engine.addEntity()
         Transform.createOrReplace(playerTriggerArea, {
