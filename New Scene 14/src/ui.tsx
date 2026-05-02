@@ -836,7 +836,7 @@ export function updateGameEntity(
   if (updateEntityState === UpdateEntityState.ADD &&
     updateEntitySync === false &&
     updateEntityType === UpdateEntityType.BARRIER &&
-    updateEntitySubtype === BarrierType.WALL
+    (updateEntitySubtype === BarrierType.WALL || updateEntitySubtype === BarrierType.BUSH)
   ) {
     if (components.transform) {
       let transformData: any = {}
@@ -1102,7 +1102,7 @@ engine.addSystem(() => {
       (getGameSession[getGameSession.length - 1].state === SessionState.WAIT ||
       getGameSession[getGameSession.length - 1].state === SessionState.CONTINUE) &&
       !gamePlayerTriggerArea) {
-      if (getGameSession[getGameSession.length - 1].state === SessionState.CONTINUE) {
+      /*if (getGameSession[getGameSession.length - 1].state === SessionState.CONTINUE) {
         if (VisibilityComponent.get(gameButtons.join).visible === true) {
           GltfContainer.createOrReplace(gameButtons.join, {
             src: 'assets/asset-packs/green_light_button/green_scifi_button.glb',
@@ -1131,7 +1131,7 @@ engine.addSystem(() => {
         VisibilityComponent.createOrReplace(gameButtons.view, {
           visible: true
         })
-      }
+      }*/
       sceneMessageBus.on('playerJoin', (player) => {
         console.log('player join: ', JSON.stringify(player))
       })

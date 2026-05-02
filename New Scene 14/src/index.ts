@@ -121,7 +121,7 @@ export function main() {
       transform: {
         position: Vector3.create(3, 1.5, 3),
         rotation: Quaternion.fromEulerDegrees(0, 0, 0),
-        scale: Vector3.create(0.1, 3, 5)
+        scale: Vector3.create(0.1, 3, 4)
       },
       material: {
         texture: {
@@ -142,11 +142,74 @@ export function main() {
       transform: {
         position: Vector3.create(5, 1.5, 3),
         rotation: Quaternion.fromEulerDegrees(0, 0, 0),
-        scale: Vector3.create(0.1, 3, 5)
+        scale: Vector3.create(0.1, 3, 4)
       },
       material: {
         texture: {
           src: 'assets/asset-packs/concrete/FloorBaseConcrete_01/Floor_Concrete01.png.png'
+        }
+      },
+      meshCollider: { shape: ShapeType.BOX },
+      meshRenderer: { shape: ShapeType.BOX }
+    }
+  )
+
+  updateGameEntity(
+    UpdateEntityState.ADD,
+    false,
+    UpdateEntityType.BARRIER,
+    BarrierType.WALL,
+    {
+      transform: {
+        position: Vector3.create(5, 1.5, 1),
+        rotation: Quaternion.fromEulerDegrees(0, 90, 0),
+        scale: Vector3.create(0.1, 3, 4)
+      },
+      material: {
+        texture: {
+          src: 'assets/asset-packs/concrete/FloorBaseConcrete_01/Floor_Concrete01.png.png'
+        }
+      },
+      meshCollider: { shape: ShapeType.BOX },
+      meshRenderer: { shape: ShapeType.BOX }
+    }
+  )
+
+  updateGameEntity(
+    UpdateEntityState.ADD,
+    false,
+    UpdateEntityType.BARRIER,
+    BarrierType.BUSH,
+    {
+      transform: {
+        position: Vector3.create(7, 1.5, 3),
+        rotation: Quaternion.fromEulerDegrees(0, 0, 0),
+        scale: Vector3.create(0.1, 3, 4)
+      },
+      material: {
+        texture: {
+          src: 'assets/asset-packs/bermuda_grass/FloorBaseGrass_01/Floor_Grass01.png.png'
+        }
+      },
+      meshCollider: { shape: ShapeType.BOX },
+      meshRenderer: { shape: ShapeType.BOX }
+    }
+  )
+
+  updateGameEntity(
+    UpdateEntityState.ADD,
+    false,
+    UpdateEntityType.BARRIER,
+    BarrierType.BUSH,
+    {
+      transform: {
+        position: Vector3.create(9, 1.5, 3),
+        rotation: Quaternion.fromEulerDegrees(0, 0, 0),
+        scale: Vector3.create(0.1, 3, 4)
+      },
+      material: {
+        texture: {
+          src: 'assets/asset-packs/bermuda_grass/FloorBaseGrass_01/Floor_Grass01.png.png'
         }
       },
       meshCollider: { shape: ShapeType.BOX },

@@ -1719,27 +1719,27 @@
         },
         "588": {
           "json": {
-            "visible": false
+            "visible": true
           }
         },
         "614": {
           "json": {
-            "visible": false
+            "visible": true
           }
         },
         "616": {
           "json": {
-            "visible": false
+            "visible": true
           }
         },
         "617": {
           "json": {
-            "visible": false
+            "visible": true
           }
         },
         "618": {
           "json": {
-            "visible": false
+            "visible": true
           }
         }
       }
@@ -2033,6 +2033,9 @@
           "json": {}
         },
         "590": {
+          "json": {}
+        },
+        "608": {
           "json": {}
         },
         "614": {
