@@ -667,7 +667,39 @@
         },
         "527": {
           "json": {
-            "states": []
+            "states": [
+              {
+                "clip": "trigger",
+                "playing": false,
+                "weight": 1,
+                "speed": 1,
+                "loop": false,
+                "shouldReset": false
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "core::AudioSource",
+      "jsonSchema": {
+        "type": "object",
+        "properties": {},
+        "serializationType": "protocol-buffer",
+        "protocolBuffer": "PBAudioSource"
+      },
+      "data": {
+        "526": {
+          "json": {
+            "volume": 1,
+            "audioClipUrl": "assets/asset-packs/blue_light_button/sound.mp3"
+          }
+        },
+        "527": {
+          "json": {
+            "volume": 1,
+            "audioClipUrl": "assets/asset-packs/blue_light_button/sound.mp3"
           }
         }
       }
@@ -1267,7 +1299,7 @@
         },
         "588": {
           "json": {
-            "collisionMask": 3,
+            "collisionMask": 0,
             "mesh": {
               "$case": "box",
               "box": {}
@@ -1276,7 +1308,7 @@
         },
         "614": {
           "json": {
-            "collisionMask": 3,
+            "collisionMask": 0,
             "mesh": {
               "$case": "box",
               "box": {}
@@ -1285,7 +1317,7 @@
         },
         "616": {
           "json": {
-            "collisionMask": 3,
+            "collisionMask": 0,
             "mesh": {
               "$case": "box",
               "box": {}
@@ -1294,7 +1326,7 @@
         },
         "617": {
           "json": {
-            "collisionMask": 3,
+            "collisionMask": 0,
             "mesh": {
               "$case": "box",
               "box": {}
@@ -1303,7 +1335,7 @@
         },
         "618": {
           "json": {
-            "collisionMask": 3,
+            "collisionMask": 0,
             "mesh": {
               "$case": "box",
               "box": {}
@@ -1754,7 +1786,7 @@
         "serializationType": "map"
       },
       "data": {
-        "0": {
+        "527": {
           "json": {
             "gizmo": 0
           }

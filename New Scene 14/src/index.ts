@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from '@dcl/sdk/math'
-import { Animator, AudioSource, AvatarBase, AvatarEquippedData, engine, GltfContainer, InputAction, PlayerIdentityData, pointerEventsSystem, timers, Transform, NetworkEntity, MeshRenderer, executeTask, AvatarAttach, AvatarAnchorPointType, MeshCollider, VisibilityComponent } from '@dcl/sdk/ecs'
-import { GameArea, GameSessions, SceneAdmins, SceneHost, ScenePlayers, getSyncEntity, getHost, setupUi, GameSettings, ModeAreaGeneration, SessionModeNPC, GameAreaGeneration, updateGameEntity, ButtonType, UpdateEntityState, UpdateEntityType, MeshColliderType, ShapeType } from './ui'
+import { Animator, AudioSource, AvatarBase, AvatarEquippedData, engine, GltfContainer, InputAction, PlayerIdentityData, pointerEventsSystem, timers, Transform, NetworkEntity, MeshRenderer, executeTask, AvatarAttach, AvatarAnchorPointType, MeshCollider, VisibilityComponent, Material, Entity, raycastSystem, RaycastQueryType, ColliderLayer } from '@dcl/sdk/ecs'
+import { GameArea, GameSessions, SceneAdmins, SceneHost, ScenePlayers, getSyncEntity, getHost, setupUi, GameSettings, ModeAreaGeneration, SessionModeNPC, GameAreaGeneration, updateGameEntity, ButtonType, UpdateEntityState, UpdateEntityType, MeshColliderType, ShapeType, newGameSession, BarrierType, gameButtons } from './ui'
 import { syncEntity, isStateSyncronized } from '@dcl/sdk/network'
 import { getPlayer } from '@dcl/sdk/src/players'
 
@@ -60,31 +60,22 @@ export function main() {
   GameAreaGeneration.create(entity, {
     template: []
   })
+  let syncNetworkEntities: Entity[] = []
+  for (const [entityNetwork, networkData] of engine.getEntitiesWith(NetworkEntity)) {
+    syncNetworkEntities.push(networkData.entityId)
+  }
+  if (syncNetworkEntities.some(network => network === 1)) {
+    syncEntity(entity, [SceneAdmins.componentId, SceneHost.componentId, ScenePlayers.componentId, GameSettings.componentId, GameSessions.componentId, GameArea.componentId, GameAreaGeneration.componentId], 1)
+  }
+  console.log(JSON.stringify(syncNetworkEntities))
 
-  syncEntity(entity, [SceneAdmins.componentId, SceneHost.componentId, ScenePlayers.componentId, GameSessions.componentId, GameArea.componentId], 1)
-  
   if (isStateSyncronized()) {
     getSyncEntity()
   }
-  
-  const box2 = engine.addEntity()
-  MeshRenderer.setBox(box2)
-  MeshCollider.setBox(box2)
-  Transform.create(box2, {
-    position: { x: 3, y: 1, z: 3 }, 
-    scale: { x: 0.1, y: 2, z: 5 }
-  })
-  const box3 = engine.addEntity()
-  MeshRenderer.setBox(box3)
-  MeshCollider.setBox(box3)
-  Transform.create(box3, {
-    position: { x: 5, y: 1, z: 3 }, 
-    scale: { x: 0.1, y: 2, z: 5 }
-  })
 
   updateGameEntity(
     UpdateEntityState.ADD,
-    true,
+    false,
     UpdateEntityType.BUTTON,
     ButtonType.JOIN,
     {
@@ -104,22 +95,201 @@ export function main() {
           clip: 'trigger',
           playing: false
         }]
+      },
+      audioSource: {
+        audioClipUrl: 'assets/asset-packs/green_light_button/sound.mp3',
+        playing: false
+      },
+      pointer: {
+        opts: {
+          button: InputAction.IA_PRIMARY,
+          hoverText: 'Click',
+          maxDistance: 10
+        },
+        pointerFunction: (event: any) => {
+          updateGameEntity(
+            UpdateEntityState.UPDATE,
+            false,
+            UpdateEntityType.BUTTON,
+            ButtonType.JOIN,
+            {
+              entity: event.hit.entityId,
+              gltfContainer: {
+                src: 'assets/asset-packs/green_light_button/green_scifi_button.glb',
+                invisibleCollision: [MeshColliderType.NONE],
+                visibleCollision: [MeshColliderType.NONE]
+              },
+              visibility: { visible: false },
+              animator: {
+                states: [{
+                  clip: 'trigger',
+                  playing: true
+                }]
+              },
+              audioSource: {
+                audioClipUrl: 'assets/asset-packs/green_light_button/sound.mp3',
+                playing: true
+              }
+            }
+          )
+          updateGameEntity(
+            UpdateEntityState.UPDATE,
+            false,
+            UpdateEntityType.BUTTON,
+            ButtonType.CANCEL,
+            {
+              entity: gameButtons.cancel,
+              gltfContainer: {
+                src: 'assets/asset-packs/red_light_button/red_scifi_button.glb',
+                invisibleCollision: [MeshColliderType.NONE],
+                visibleCollision: [MeshColliderType.PHYSICS, MeshColliderType.POINTER]
+              },
+              visibility: { visible: true },
+              animator: {
+                states: [{
+                  clip: 'trigger',
+                  playing: false
+                }]
+              },
+              audioSource: {
+                audioClipUrl: 'assets/asset-packs/red_light_button/sound.mp3',
+                playing: false
+              }
+            }
+          )
+        }
       }
     }
   )
 
   updateGameEntity(
     UpdateEntityState.ADD,
-    true,
+    false,
     UpdateEntityType.BUTTON,
     ButtonType.CANCEL,
     {
       transform: {
-        position: Vector3.create(0, 0, 0),
-        scale: Vector3.create(1, 2, 1)
+        position: Vector3.create(16, 1.8, 13.25),
+        rotation: Quaternion.fromEulerDegrees(270, 0, 0),
+        scale: Vector3.create(1, 1, 1)
       },
-      meshRenderer: { shape: ShapeType.CYLINDER },
-      avatarAttach: { attach: true }
+      gltfContainer: {
+        src: 'assets/asset-packs/red_light_button/red_scifi_button.glb',
+        invisibleCollision: [MeshColliderType.NONE],
+        visibleCollision: [MeshColliderType.PHYSICS, MeshColliderType.POINTER]
+      },
+      visibility: { visible: true },
+      animator: {
+        states: [{
+          clip: 'trigger',
+          playing: false
+        }]
+      },
+      audioSource: {
+        audioClipUrl: 'assets/asset-packs/red_light_button/sound.mp3',
+        playing: false
+      },
+      pointer: {
+        opts: {
+          button: InputAction.IA_PRIMARY,
+          hoverText: 'Click',
+          maxDistance: 10
+        },
+        pointerFunction: (event: any) => {
+          updateGameEntity(
+            UpdateEntityState.UPDATE,
+            false,
+            UpdateEntityType.BUTTON,
+            ButtonType.CANCEL,
+            {
+              entity: event.hit.entityId,
+              gltfContainer: {
+                src: 'assets/asset-packs/green_light_button/green_scifi_button.glb',
+                invisibleCollision: [MeshColliderType.NONE],
+                visibleCollision: [MeshColliderType.NONE]
+              },
+              visibility: { visible: false },
+              animator: {
+                states: [{
+                  clip: 'trigger',
+                  playing: true
+                }]
+              },
+              audioSource: {
+                audioClipUrl: 'assets/asset-packs/green_light_button/sound.mp3',
+                playing: true
+              }
+            }
+          )
+          updateGameEntity(
+            UpdateEntityState.UPDATE,
+            false,
+            UpdateEntityType.BUTTON,
+            ButtonType.JOIN,
+            {
+              entity: gameButtons.join,
+              gltfContainer: {
+                src: 'assets/asset-packs/red_light_button/green_scifi_button.glb',
+                invisibleCollision: [MeshColliderType.NONE],
+                visibleCollision: [MeshColliderType.PHYSICS, MeshColliderType.POINTER]
+              },
+              visibility: { visible: true },
+              animator: {
+                states: [{
+                  clip: 'trigger',
+                  playing: false
+                }]
+              },
+              audioSource: {
+                audioClipUrl: 'assets/asset-packs/green_light_button/sound.mp3',
+                playing: false
+              }
+            }
+          )
+        }
+      }
+    }
+  )
+
+  updateGameEntity(
+    UpdateEntityState.ADD,
+    false,
+    UpdateEntityType.BARRIER,
+    BarrierType.WALL,
+    {
+      transform: {
+        position: Vector3.create(3, 1.5, 3),
+        rotation: Quaternion.fromEulerDegrees(0, 0, 0),
+        scale: Vector3.create(0.1, 3, 5)
+      },
+      material: {
+        texture: {
+          src: 'assets/asset-packs/concrete/FloorBaseConcrete_01/Floor_Concrete01.png.png'
+        }
+      },
+      meshCollider: { shape: ShapeType.BOX },
+      meshRenderer: { shape: ShapeType.BOX }
+    }
+  )
+
+  updateGameEntity(
+    UpdateEntityState.ADD,
+    false,
+    UpdateEntityType.BARRIER,
+    BarrierType.WALL,
+    {
+      transform: {
+        position: Vector3.create(5, 1.5, 3),
+        rotation: Quaternion.fromEulerDegrees(0, 0, 0),
+        scale: Vector3.create(0.1, 3, 5)
+      },
+      material: {
+        texture: {
+          src: 'assets/asset-packs/concrete/FloorBaseConcrete_01/Floor_Concrete01.png.png'
+        }
+      },
+      meshCollider: { shape: ShapeType.BOX },
+      meshRenderer: { shape: ShapeType.BOX }
     }
   )
 
@@ -127,15 +297,16 @@ export function main() {
 }
 
 const timeoutId = timers.setTimeout(() => {
-  for (const [entity, data] of engine.getEntitiesWith(PlayerIdentityData)) {
+  /*for (const [entity, data] of engine.getEntitiesWith(PlayerIdentityData)) {
     const myEntity = engine.addEntity()
-
     MeshRenderer.setBox(myEntity)
     AvatarAttach.create(myEntity, {
         anchorPointId: AvatarAnchorPointType.AAPT_LEFT_HAND,
         avatarId: data.address,
     })
-}
+}*/
+getHost()
+newGameSession()
 }, 5000)
 
 

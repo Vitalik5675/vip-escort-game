@@ -1,6 +1,6 @@
-import { Animator, AudioSource, AvatarAnchorPointType, AvatarAttach, ColliderLayer, engine, Entity, GltfContainer, InputAction, Material, MeshCollider, MeshRenderer, NetworkEntity, PlayerIdentityData, pointerEventsSystem, Schemas, TextureWrapMode, Transform, TriggerArea, VisibilityComponent } from "@dcl/sdk/ecs"
+import { Animator, AudioSource, AvatarAnchorPointType, AvatarAttach, ColliderLayer, engine, Entity, GltfContainer, InputAction, inputSystem, Material, MeshCollider, MeshRenderer, NetworkEntity, PlayerIdentityData, pointerEventsSystem, PointerEventType, RaycastQueryType, raycastSystem, Schemas, TextureWrapMode, Transform, TriggerArea, triggerAreaEventsSystem, VisibilityComponent } from "@dcl/sdk/ecs"
 import { Quaternion, Vector2, Vector3 } from "@dcl/sdk/math"
-import { syncEntity } from "@dcl/sdk/network"
+import { isStateSyncronized, syncEntity } from "@dcl/sdk/network"
 import ReactEcs, { ReactEcsRenderer, UiEntity } from "@dcl/sdk/react-ecs"
 import { getPlayer, onEnterScene, onLeaveScene } from '@dcl/sdk/src/players'
 
@@ -156,6 +156,8 @@ let getGameAreaGeneration: {
 
 let sceneAdmin: boolean = false
 let scenePlayersOnline: { wallet: string, name: string, online: boolean, state: PlayerState }[]
+let gamePlayerTriggerArea: Entity = 0 as Entity
+export let gameButtons: { join: Entity, cancel: Entity } = { join: 0 as Entity, cancel: 0 as Entity }
 
 export enum PlayerState {
   IDLE = 'idle',
@@ -507,7 +509,7 @@ export const GameAreaGeneration = engine.defineComponent('GameAreaGeneration', {
 })
 
 export function getSyncEntity() {
-  for (const [entity] of engine.getEntitiesWith(SceneAdmins, SceneHost, ScenePlayers, GameSessions, GameArea)) {
+  for (const [entity] of engine.getEntitiesWith(SceneAdmins, SceneHost, ScenePlayers, GameSettings, GameSessions, GameArea, GameAreaGeneration)) {
     getSceneAdmins = SceneAdmins.get(entity).wallets
     getScenePlayers = ScenePlayers.get(entity).players as typeof getScenePlayers
     getSceneHost = SceneHost.get(entity).host
@@ -625,6 +627,14 @@ export function updateGameEntity(
     meshRenderer?: { shape: ShapeType }
     triggerArea?: { shape: ShapeType, invisibleCollision?: MeshColliderName | MeshColliderName[] },
     avatarAttach?: { attach: boolean }
+    pointer?: {
+      opts: {
+        button: InputAction,
+        hoverText?: string
+        maxDistance?: number
+      },
+      pointerFunction?: {}
+    }
   }
 ) {
   let entity: Entity | undefined
@@ -643,6 +653,21 @@ export function updateGameEntity(
   }
   if (!entity) return
 
+  if (updateEntityState === UpdateEntityState.ADD &&
+    updateEntitySync === false &&
+    updateEntityType === UpdateEntityType.BUTTON &&
+    updateEntitySubtype === ButtonType.JOIN
+  ) {
+    gameButtons.join = entity
+  }
+  if (updateEntityState === UpdateEntityState.ADD &&
+    updateEntitySync === false &&
+    updateEntityType === UpdateEntityType.BUTTON &&
+    updateEntitySubtype === ButtonType.CANCEL
+  ) {
+    gameButtons.cancel = entity
+  }
+
   if (components.transform) {
     let transformData: any = {}
     components.transform.position ? transformData.position = components.transform.position : null
@@ -650,12 +675,11 @@ export function updateGameEntity(
     components.transform.scale ? transformData.scale = components.transform.scale : null
     components.transform.parent ? transformData.parent = components.transform.parent : null
     Transform.createOrReplace(entity, transformData)
-    console.log(JSON.stringify(components.transform))
   }
   if (components.material) {
     if (components.material.texture) {
-      const materialData: any = {}
       const textureData: any = {}
+      const materialData: any = {}
       components.material.texture.src ? textureData.src = components.material.texture.src : null
       components.material.texture.wrapMode ? textureData.wrapMode = components.material.texture.wrapMode : null
       components.material.texture.offset ? textureData.offset = components.material.texture.offset : null
@@ -719,11 +743,6 @@ export function updateGameEntity(
     } else if (components.meshRenderer.shape === ShapeType.CYLINDER) {
       MeshRenderer.setCylinder(entity)
     }
-    if (getPlayer()?.userId === '0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a') {
-      syncEntity(entity, [Transform.componentId, VisibilityComponent.componentId, MeshCollider.componentId, MeshRenderer.componentId], 3)
-    } else {
-      syncEntity(entity, [Transform.componentId, VisibilityComponent.componentId, MeshCollider.componentId, MeshRenderer.componentId], 4)
-    }
   }
   if (components.triggerArea) {
     if (components.triggerArea.invisibleCollision) {
@@ -740,15 +759,22 @@ export function updateGameEntity(
       }
     }
   }
-  if (components.avatarAttach?.attach && getPlayer()?.userId === '0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a') {
-    AvatarAttach.createOrReplace(entity, {
-      //avatarId: '0x785aaba4a4efb0fa59b6e26c884c885ec7b2669a',
-      anchorPointId: AvatarAnchorPointType.AAPT_HIP
-    })
-    syncEntity(entity, [AvatarAttach.componentId])
-    console.log(JSON.stringify(components.avatarAttach))
+  if (components.pointer) {
+  const optsData: any = {}
+  components.pointer.opts.button ? optsData.button = components.pointer.opts.button : null
+  components.pointer.opts.hoverText ? optsData.hoverText = components.pointer.opts.hoverText : null
+  components.pointer.opts.maxDistance ? optsData.maxDistance = components.pointer.opts.maxDistance : null
+  let pointerFunction = (event: any) => { if (typeof components.pointer?.pointerFunction === 'function') { components.pointer.pointerFunction(event) } }
+  const pointerData: any = {
+    entity: entity,
+    opts: optsData
   }
-  console.log(JSON.stringify(getPlayer()?.userId))
+  
+  pointerEventsSystem.onPointerDown(
+    pointerData,
+    pointerFunction
+  )
+  }
   return entity
 }
 
@@ -842,6 +868,55 @@ function generateId(length: number): string {
   }
   return result;
 }
+
+engine.addSystem(() => {
+  if (isStateSyncronized()) {
+    getHost()
+    getSyncEntity()
+    if (getGameSession.length > 0 &&
+      (getGameSession[getGameSession.length - 1].state === SessionState.WAIT ||
+      getGameSession[getGameSession.length - 1].state === SessionState.CONTINUE) &&
+      !gamePlayerTriggerArea) {
+      if (getGameSession[getGameSession.length - 1].players.some(player => player.wallet === getPlayer()?.userId)) {
+        const playerTriggerArea = engine.addEntity()
+        Transform.createOrReplace(playerTriggerArea, {
+          position: Vector3.create(0, 1, 0),
+          scale: Vector3.create(3, 3, 3),
+          parent: engine.PlayerEntity
+        })
+        MeshRenderer.setSphere(playerTriggerArea)
+        TriggerArea.setSphere(playerTriggerArea)
+        triggerAreaEventsSystem.onTriggerEnter(playerTriggerArea, function(result) {
+          if (result.trigger?.entity && result.trigger.entity !== getPlayer()?.entity) {
+            
+          }
+        })
+        triggerAreaEventsSystem.onTriggerStay(playerTriggerArea, function(result) {
+          if (result.trigger?.entity && result.trigger.entity !== getPlayer()?.entity) {
+            
+          }
+        })
+        triggerAreaEventsSystem.onTriggerExit(playerTriggerArea, function(result) {
+          if (result.trigger?.entity && result.trigger.entity !== getPlayer()?.entity) {
+            
+          }
+        })
+        gamePlayerTriggerArea = playerTriggerArea
+      }
+    } else if (getGameSession.length > 0 &&
+      (getGameSession[getGameSession.length - 1].state === SessionState.CANCEL ||
+      getGameSession[getGameSession.length - 1].state === SessionState.END) &&
+      gamePlayerTriggerArea) {
+      if (gamePlayerTriggerArea) {
+        engine.removeEntity(gamePlayerTriggerArea)
+      }
+      gamePlayerTriggerArea = 0 as Entity
+    }
+    /*if (inputSystem.isTriggered(InputAction.IA_PRIMARY, PointerEventType.PET_DOWN)) {
+      
+    }*/
+  }
+})
 
 export function setupUi() {
     ReactEcsRenderer.setUiRenderer(uiMenu, { virtualWidth: 1920, virtualHeight: 1080 })
